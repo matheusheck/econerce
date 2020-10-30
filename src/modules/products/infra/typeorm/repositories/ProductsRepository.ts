@@ -4,7 +4,6 @@ import IProductsRepository from '@modules/products/repositories/IProductsReposit
 import ICreateProductDTO from '@modules/products/dtos/ICreateProductDTO';
 import IUpdateProductsQuantityDTO from '@modules/products/dtos/IUpdateProductsQuantityDTO';
 import Product from '../entities/Product';
-import AppError from '@shared/errors/AppError';
 
 interface IFindProducts {
   id: string;
@@ -42,40 +41,24 @@ class ProductsRepository implements IProductsRepository {
   }
 
   public async findAllById(products: IFindProducts[]): Promise<Product[]> {
-    const product = await this.ormRepository.find({
-      where: {
-        id: products.map(product => product.id)
-      },
-    });
+    const allProducts = await this.ormRepository.findByIds(products);
 
-    return product;
+    return allProducts;
   }
 
   public async updateQuantity(
     products: IUpdateProductsQuantityDTO[],
   ): Promise<Product[]> {
+    const findProducts = await this.findAllById(products);
 
-    products.forEach(async (product) => {
-      const findProducts = await this.ormRepository.findOne({
-        where: {
-          id: product.id
-        },
-      });
+    const updatedQuantity = findProducts.map((value, index) => ({
+      ...value,
+      quantity: value.quantity - products[index].quantity,
+    }));
 
-      if(!findProducts){
-        throw new AppError('invalid product')
-      }
+    await this.ormRepository.save(updatedQuantity);
 
-      findProducts.quantity = product.quantity;
-    })
-
-    const newProducts = await this.ormRepository.find({
-      where: {
-        id: products.map(product => product.id)
-      },
-    });
-
-    return newProducts;
+    return updatedQuantity;
   }
 }
 
